@@ -12,6 +12,23 @@ namespace RestaurantRaterAPI.Controllers
     [Route("controller")]
     public class RestaurantController : Controller
     {
+        public double AverageRating 
+        { 
+            get 
+            {
+                if (Ratings.Count == 0)
+                {
+                    return 0;
+                }
+                double total = 0.0;
+                foreach (Rating rating in Ratings)
+                {
+                    total += rating.Score;
+                }
+                return total / Ratings.Count;
+            }
+        }
+        public virtual List<Rating> Ratings { get; set; } = new List<Rating>();
         private RestaurantDbContext _context;
         public RestaurantController(RestaurantDbContext context)
         {
@@ -35,19 +52,36 @@ namespace RestaurantRaterAPI.Controllers
             return Ok();
         }
 
-        [HttpGet]
-        public async Task<IActionResult> GetRestaurants()
+        [HttpPost]
+        public async Task<IActionResult> PostRestaurant([FromForm] RatingEdit model)
         {
-            var restaurant = await _context.Restaurants.ToListAsync();
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            _context.Ratings.Add(new Rating()
+            {
+                Score = model.Score,
+                RestaurantId = model.RestaurantId,
+            });
+
+            await _context.SaveChangesAsync();
             return Ok();
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetAllRestaurants()
+        {
+            var restaurants = await _context.Restaurants.Include(r => r.Ratings).ToListAsync();
+            return Ok(restaurants);
         }
 
         
         [HttpGet]
         [Route("{id}")]
-        public async Task<IActionResult> GetResultById(int Id)
+        public async Task<IActionResult> GetRestaurantById(int id)
         {
-            var restaurant = await _context.Restaurants.FindAsync(Id);
+            var restaurant = await _context.Restaurants.Include(r=> r.Ratings).FirstOrDefaultAsync(r => r.Id == id);
 
             if (restaurant == null)
             {
